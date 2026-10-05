@@ -9,14 +9,24 @@ function MyStack() {
     </Stack.Navigator>
   );
 }
-        <TextInput style={{ 
-          backgroundColor: '#121212',
-          borderRadius:10,
-          fontSize: 18,
-          color: '#fff',
-          width: 165,
-          height: 30
+       <Text style={globalstyles.campo_b}> Descrição do Compra          | R$ Compra </Text>
+          <FlatList
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={globalstyles.campo_b}
+            horizontal={false}
+            data={listacompra}
+            keyExtractor={(item) => item.descvenda}
+            renderItem={({ item }) => {
+            return (
+            <TouchableOpacity
+              onPress={() => removeItem(item.descvenda)}
+            >
+            <View style={{flexDirection: "row",justifyContent: "space-between"}}>
+            <Text style={{ fontSize: 20, lineHeight: 24}}>{item.descvenda}</Text>
+            <Text style={{ fontSize: 20, lineHeight: 24}}>{formatarDinheiro(item.vlcompra)}</Text>
+            </View>
+            </TouchableOpacity> 
+             );
+           
           }}
-          value={telemp}
-          onChangeText={(telemp) => setTelemp(telemp)}
-        />               
+        />

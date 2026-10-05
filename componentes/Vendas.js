@@ -4,16 +4,20 @@ import { Alert, Pressable, Text, View, TextInput, FlatList, TouchableOpacity,But
 import {Picker} from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { globalstyles } from '../estilos';
-import { TextInputMask } from "react-native-masked-text";
 import CurrencyInput from 'react-native-currency-input';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function Vendas({ navigation }) {
 
   const [apelido , setApelido] = useState('');
   const [descvenda , setDescvenda] = useState('');
-  const [dtcomp , setDtcomp] = useState('');
+  const [dtcomp , setDtcomp] = useState(new Date());
   const [vlcompra , setVlcompra] = useState('0.00');  
+  
   const [vapelido , setVapelido] = useState(null);
+  const [status, setStatus] = useState('Aguardando digitação...');
+  // Estado para controlar a visibilidade do seletor
+  const [show, setShow] = useState(false); // para a data
  
   const [situcli , setSitucli] = useState('I');
 
@@ -43,9 +47,9 @@ export default function Vendas({ navigation }) {
   const [listacompra, setListacompra] = useState(Avenda);
 
    function limpaDados(){
-    setApelido('');
+    //setApelido('');
     setDescvenda('');
-    setDtcomp('');
+    setDtcomp(new Date());
     setVlcompra('');  
    };
 
@@ -54,15 +58,30 @@ export default function Vendas({ navigation }) {
   },[]);    
 
    function pegaCli(vcli){
+   if(listacompra.vapelido != apelido){
+      setListacompra([]);
+     };
     setApelido(vcli);
     setVapelido(vcli);
    };
 
-   const removeItem = (id) => {
+   const removeItem = (descvenda) => {
     let arr = listacompra.filter(function(item) {
-      return item.descvenda !== id
+      return item.descvenda !== descvenda
     })
     setListacompra(arr);
+  };
+
+  // Função chamada quando o usuário altera ou confirma a data
+  const onChange = (event: any, setDtcomp?: Date) => {
+    const currentDate = setDtcomp || date;
+    setShow(false); // Fecha o seletor no Android/iOS
+    setDtcomp(currentDate); // Salva a nova data no estado
+  };
+
+  // Função para definir explicitamente a data atual (botão rápido)
+  const setToday = () => {
+    setDtcomp(new Date());
   };
 
   // gera lista de clie
@@ -70,11 +89,45 @@ export default function Vendas({ navigation }) {
       const resposta = await AsyncStorage.getItem('@Cliente');
       const dados = resposta ? JSON.parse(resposta):[];
       setLista(dados);
-    };
+   };
+
+// useEffect que funciona como o nosso "Debounce"
+  useEffect(() => {
+    // Se o campo estiver vazio, resgata o status inicial
+    if (apelido.length === 0) {
+      setStatus('Aguardando digitação...');
+      return;
+    }
+
+    // Define um timer para rodar a validação após 600ms de inatividade
+    const delayDebounceFn = setTimeout(() => {
+      validarTexto(apelido);
+    }, 600);
+
+    // Limpa o timer caso o usuário digite outra letra antes dos 600ms passarem
+    return () => clearTimeout(delayDebounceFn);
+  }, [apelido]);
+
+  // Função que será executada APÓS o preenchimento
+async function validarTexto(textoParaValidar) {
+       listacompra.map((item,index))
+       if(item.vapelido != apelido){
+         setListacompra([]);
+       };
+       setApelido(apelido);
+  };
+
+     // Formata o número para o padrão de moeda Real (BRL)
+    async function formatarDinheiro(valor) {
+      const numero = Number(valor) || 0;
+      return numero.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      });
+    }
 
       async function ValidaCli(){
-        console.log(apelido);
-        console.log(vlcompra);
+       
         if(apelido == ' ' || vlcompra == 0){
           Alert.alert('Atenção!', 'Apelido ou Valor Não podem estar Vazio!');
           } else if(apelido != ' '){
@@ -85,7 +138,7 @@ export default function Vendas({ navigation }) {
               const dados = [...matriz,Avenda];
               await AsyncStorage.setItem(apelido+"C",JSON.stringify(dados));
               setListacompra(dados);
-          
+       
               Alert.alert('Compra!', 'Cadastrada com Exito ('+apelido+')!');
 
             }   
@@ -99,7 +152,7 @@ export default function Vendas({ navigation }) {
       <View style={{ flex:1 }}>
  
       <View style={{flexDirection: "row",justifyContent: "space-between"}} > 
-        <Text style={globalstyles.campo_b}>  Apelido  </Text> 
+        <Text style={globalstyles.campo_b}>  Apelido </Text> 
         <Text style={globalstyles.campo_b}>Clientes/Apelidos</Text>
         
       </View>
@@ -112,8 +165,10 @@ export default function Vendas({ navigation }) {
             width: 180,
             height: 40
             }}
+            onChangeText={setApelido}
             value={apelido}
-            onChangeText={(apelido) => setApelido(apelido)}
+            //value={apelido}
+            //onChangeText={(apelido) => setApelido(apelido)}
           />
            <Picker 
              selectedValue={vapelido}
@@ -125,7 +180,9 @@ export default function Vendas({ navigation }) {
               {listacli.map((item, index) => (
               <Picker.Item style={{fontSize: 14}} key={item.apelido} label={item.apelido+"-"+item.nomecli} value={item.apelido} />
               ))}
+              
             </Picker>
+            
         </View>   
         <Text style={globalstyles.campo_b}>Descrição da Compra</Text> 
         <TextInput style={globalstyles.campo_a}
@@ -134,8 +191,14 @@ export default function Vendas({ navigation }) {
         />     
 
         <View style={{flexDirection: "row",justifyContent: "space-between"}} > 
-          <Text style={globalstyles.campo_b}>R $  Compra</Text> 
-          <Text style={globalstyles.campo_b}>Data da Compra</Text> 
+          <Text style={globalstyles.campo_b} > R$  C o m p r a </Text> 
+
+           <Pressable
+            onPress={() => {setShow(true)}}
+            style={globalstyles.campo_b}>
+            <Text style={{  textAlign: 'center',fontSize: 18}}>Seleciona Data</Text>
+           </Pressable>  
+
           </View>
           <View style={{flexDirection: "row",justifyContent: "space-between"}} > 
            <CurrencyInput
@@ -154,22 +217,29 @@ export default function Vendas({ navigation }) {
             height: 40
             }}
            />
-    
-        <TextInputMask style={{ 
+
+           <Pressable
+            onPress={setToday}
+            style={globalstyles.campo_a}>
+            <Text 
+            style={{ 
             backgroundColor: '#121212',
             borderRadius:10,
             fontSize: 18,
-            color: '#fff',
-            width: 150,
-            height: 40
-            }}
-         type={'datetime'}
-         options={{
-         format: 'DD/MM/YYYY'
-         }}
-         value={dtcomp}
-         onChangeText={text => setDtcomp(text)}
-        />
+            color: '#ffffff',
+            width: 130,
+            height: 30,
+            }}>    Data Atual</Text>
+           </Pressable>  
+
+          {show && (
+            <DateTimePicker
+               value={dtcomp}
+               mode="date"
+               display="default"
+               onChange={onChange}
+            />
+          )}
       </View>
       
       <View style={{flexDirection: "row",justifyContent: "space-between"}} >
@@ -192,24 +262,38 @@ export default function Vendas({ navigation }) {
         </Pressable>  
       </View>
 
-      <Text  style={{ fontSize: 24}}>Pedido</Text>
-        <FlatList
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={globalstyles.campo_b}
-          horizontal={false}
-          data={listacompra}
-          keyExtractor={(item) => item.descvenda}
-          renderItem={({ item }) => {
-          return (
-          <TouchableOpacity
-            onPress={() => removeItem(item.descvenda)}
-          >
-          <Text>{item.descvenda+'-'+item.vlcompra}</Text>
-          </TouchableOpacity>  
-          );
-        }}
-      />
-
+      <Text 
+        style={{ 
+        backgroundColor: '#121212',
+        borderRadius:10,
+        fontSize: 24,
+        color: '#ffffff',
+        width: 380,
+        height: 38}}>
+        Pedidos
+      </Text>
+    
+      <Text style={globalstyles.campo_b}> Descrição do Compra          | R$ Compra </Text>
+         <FlatList
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={globalstyles.campo_b}
+            horizontal={false}
+            data={listacompra}
+            keyExtractor={(item) => item.descvenda}
+            renderItem={({ item }) => {
+            return (
+            <TouchableOpacity
+              onPress={() => removeItem(item.descvenda)}
+            >
+            <View style={{flexDirection: "row",justifyContent: "space-between"}}>
+            <Text style={{ fontSize: 20, lineHeight: 24}}>{item.descvenda}</Text>
+            <Text style={{ fontSize: 20, lineHeight: 24}}>{formatarDinheiro(item.vlcompra)}</Text>
+            </View>
+            </TouchableOpacity> 
+             );
+           
+          }}
+        />
     </View>
   );
 }
